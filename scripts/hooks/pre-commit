@@ -1,0 +1,3 @@
+#!/bin/bash
+
+fish `git rev-parse --show-toplevel`/scripts/hooks/impl/pre-commit $@

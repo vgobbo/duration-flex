@@ -1,0 +1,16 @@
+[workspace]
+members = [ "app", "lib" ]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0-NEXT"
+
+[profile.release]
+codegen-units = 1
+debug = false
+lto = true
+opt-level = 3
+panic = "unwind"
+strip = true
+
+[workspace.dependencies]
