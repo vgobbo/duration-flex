@@ -1,6 +1,13 @@
 [package]
+authors = [ "Vinicius Gobbo Antunes de Oliveira <vgobbo@gmail.com>" ]
+description = "Specify durations in an easier to easy format, like 1h20m."
 edition = "2021"
+homepage = "https://github.com/vgobbo/duration-flex?tab=readme-ov-file#duration-flex"
+keywords = [ "chrono", "time" ]
+license = "MIT OR Apache-2.0"
 name = "duration-flex"
+readme = "CRATE.md"
+repository = "https://github.com/vgobbo/duration-flex?tab=readme-ov-file"
 version = "0.1.0-NEXT"
 
 [dependencies]
