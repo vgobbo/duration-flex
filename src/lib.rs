@@ -4,10 +4,13 @@ use std::str::FromStr;
 use std::time;
 
 use chrono::{DateTime, Duration, TimeZone};
+#[cfg(feature = "clap")]
 use clap::builder::OsStr;
 use once_cell::sync::Lazy;
 use regex::{Match, Regex};
+#[cfg(feature = "serde")]
 use serde::de::{Error, Unexpected, Visitor};
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 pub const SECS_PER_MINUTES: i64 = 60;
@@ -52,8 +55,6 @@ pub struct DurationFlex {
 
 static REGEX_STR: &str =
 	r"^((?P<weeks>\d+)w)?((?P<days>\d+)d)?((?P<hours>\d+)h)?((?P<minutes>\d+)m)?((?P<seconds>\d+)s)?$";
-static REGEX_MSG: &str =
-	"a String with the format weeks (w), days (d), hours (h), minutes (m) and/or seconds (s), in order";
 
 static REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(REGEX_STR).unwrap());
 
@@ -185,11 +186,15 @@ impl Display for DurationFlex {
 	}
 }
 
+#[cfg(feature = "serde")]
 impl<'de> Deserialize<'de> for DurationFlex {
 	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
 	where
 		D: Deserializer<'de>,
 	{
+		static REGEX_MSG: &str =
+			"a String with the format weeks (w), days (d), hours (h), minutes (m) and/or seconds (s), in order";
+
 		struct DurationFlexVisitor;
 
 		impl<'de> Visitor<'de> for DurationFlexVisitor {
@@ -233,6 +238,7 @@ impl<'de> Deserialize<'de> for DurationFlex {
 	}
 }
 
+#[cfg(feature = "serde")]
 impl Serialize for DurationFlex {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
@@ -242,12 +248,14 @@ impl Serialize for DurationFlex {
 	}
 }
 
+#[cfg(feature = "clap")]
 impl From<OsStr> for DurationFlex {
 	fn from(value: OsStr) -> Self {
 		DurationFlex::try_from(value.to_str().unwrap()).unwrap()
 	}
 }
 
+#[cfg(feature = "clap")]
 impl From<DurationFlex> for OsStr {
 	fn from(value: DurationFlex) -> Self {
 		format!("{}", value).into()
@@ -265,6 +273,7 @@ impl FromStr for DurationFlex {
 #[cfg(test)]
 mod test {
 
+	use serde::{Deserialize, Serialize};
 	use serde_test::{assert_de_tokens, assert_ser_tokens, Token};
 
 	use super::*;

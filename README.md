@@ -3,7 +3,12 @@
 Helper class to make it easier to specify duration files. Specially useful in configuration files.
 
 **Example:**
-- 1 hour and 23 minutes can be written as: `1h23m`
+- 1 hour and 23 minutes: `1h23m`
+- 1 week, 6 days, 23 hours, 49 minutes andd 50 seconds: `1w6d23h49m59s`
+
+## Features
+- `clap`: enable clap support, so it can be used as application arguments.
+- `serde`: enable serde support.
 
 ## Developing
 
@@ -23,3 +28,8 @@ cargo install --profile release taplo ripgrep
 ```
 6. Setup hooks: `./scripts/setup-hooks`
 7. (**Optional**) Run `./scripts/setup-target` to initialize `target/` in the temporary directory. This has to be done everytime the machine is restarted. 
+
+To test, always specify `--all-features`:
+```shell
+cargo test --all-features
+```
