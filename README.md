@@ -1,6 +1,9 @@
-# rust-template
+# Duration Flex
 
-Rust development template.
+Helper class to make it easier to specify duration files. Specially useful in configuration files.
+
+**Example:**
+- 1 hour and 23 minutes can be written as: `1h23m`
 
 ## Developing
 
@@ -14,7 +17,7 @@ rustup toolchain install stable-aarch64-apple-darwin
 ```shell
 rustup toolchain install nightly-aarch64-apple-darwin
 ```
-5. Insall rust packages:
+5. Install rust packages:
 ```shell
 cargo install --profile release taplo ripgrep
 ```
