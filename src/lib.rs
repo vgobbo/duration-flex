@@ -28,7 +28,7 @@ pub enum DurationError {
 ///
 /// Can be used with `clap`, and can be used as a default value like the following:
 ///
-/// ```no_run
+/// ```
 /// use clap::Args;
 /// use duration_flex::DurationFlex;
 ///
