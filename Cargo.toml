@@ -4,3 +4,11 @@ name = "duration-flex"
 version = "0.1.0-NEXT"
 
 [dependencies]
+chrono = { version = "0.4" }
+clap = { version = "4.5", features = [ "string" ] }
+once_cell = { version = "1.20" }
+regex = { version = "1.11" }
+serde = { version = "1.0.216", features = [ "derive" ] }
+
+[dev-dependencies]
+serde_test = { version = "1.0" }
