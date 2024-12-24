@@ -5,7 +5,7 @@ set REPO_ROOT_DIR (git rev-parse --show-toplevel)
 # Format Rust files.
 set files (git diff --cached --name-only --diff-filter=ACMR | grep -Ei '\.rs$')
 if test (count $files) -gt 0
-  if not cargo clippy --fix --allow-dirty --allow-staged --no-deps -- -Dwarnings
+  if not cargo clippy --fix --allow-dirty --allow-staged --no-deps --all-features -- -Dwarnings
     exit 1
   end
 
