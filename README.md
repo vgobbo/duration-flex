@@ -1,5 +1,7 @@
 # Duration Flex
 
+![rust.yml](https://github.com/vgobbo/duration-flex/actions/workflows/rust.yml/badge.svg)
+
 Helper class to make it easier to specify durations. Specially useful in configuration files.
 
 It is common for durations to be specified in configuration files as "the number of seconds", which might not be very readable in some cases.
