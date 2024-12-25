@@ -1,6 +1,6 @@
 //! # Duration Flex
 //!
-//! Helper class to make it easier to specify duration files. Specially useful in configuration files.
+//! Helper to make it easier to specify duration files. Specially useful in configuration files.
 //! - Basic interoperability with [`chrono::DateTime`], allowing it to be added/subbed from it.
 //! - Can be built from [`chrono::Duration`].
 //! - Can be built from [`std::time::Duration`].
@@ -15,6 +15,18 @@
 //! - Hours: `15h` (15 hours).
 //! - Minutes: `5m` (5 minutes).
 //! - Seconds: `30s` (30 seconds).
+//!
+//! ## Usage
+//!
+//! Simply call one of the `from` methods to create an instance:
+//! ```
+//! use duration_flex::DurationFlex;
+//!
+//! # pub fn main() {
+//! let df = DurationFlex::try_from("1w6d23h49m59s").unwrap();
+//! println!("{df}");
+//! # }
+//! ```
 //!
 //! ## Features
 //! - `clap`: enable clap support, so it can be used as application arguments.
@@ -35,14 +47,18 @@ use serde::de::{Error, Unexpected, Visitor};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-pub const SECS_PER_MINUTES: i64 = 60;
-pub const SECS_PER_HOUR: i64 = 60 * SECS_PER_MINUTES;
-pub const SECS_PER_DAY: i64 = 24 * SECS_PER_HOUR;
-pub const SECS_PER_WEEK: i64 = 7 * SECS_PER_DAY;
+const SECS_PER_MINUTES: i64 = 60;
+const SECS_PER_HOUR: i64 = 60 * SECS_PER_MINUTES;
+const SECS_PER_DAY: i64 = 24 * SECS_PER_HOUR;
+const SECS_PER_WEEK: i64 = 7 * SECS_PER_DAY;
 
+/// Errors returned by the different methods.
 #[derive(Copy, Clone, Debug)]
-pub enum DurationError {
+pub enum DurationFlexError {
+	/// String format is not valid, e.g. `1y` (`y` is not supported).
 	InvalidFormat,
+
+	/// Value is out of range.
 	OutOfRange,
 }
 
@@ -145,21 +161,21 @@ where
 }
 
 impl TryFrom<&str> for DurationFlex {
-	type Error = DurationError;
+	type Error = DurationFlexError;
 
 	fn try_from(value: &str) -> Result<Self, Self::Error> {
-		let captures = REGEX.captures(value).ok_or(DurationError::InvalidFormat)?;
+		let captures = REGEX.captures(value).ok_or(DurationFlexError::InvalidFormat)?;
 
 		let weeks = Duration::try_weeks(captures.name("weeks").map_or(0i64, Self::de_component))
-			.ok_or(DurationError::OutOfRange)?;
+			.ok_or(DurationFlexError::OutOfRange)?;
 		let days = Duration::try_days(captures.name("days").map_or(0i64, Self::de_component))
-			.ok_or(DurationError::OutOfRange)?;
+			.ok_or(DurationFlexError::OutOfRange)?;
 		let hours = Duration::try_hours(captures.name("hours").map_or(0i64, Self::de_component))
-			.ok_or(DurationError::OutOfRange)?;
+			.ok_or(DurationFlexError::OutOfRange)?;
 		let minutes = Duration::try_minutes(captures.name("minutes").map_or(0i64, Self::de_component))
-			.ok_or(DurationError::OutOfRange)?;
+			.ok_or(DurationFlexError::OutOfRange)?;
 		let seconds = Duration::try_seconds(captures.name("seconds").map_or(0i64, Self::de_component))
-			.ok_or(DurationError::OutOfRange)?;
+			.ok_or(DurationFlexError::OutOfRange)?;
 
 		let duration = weeks + days + hours + minutes + seconds;
 
@@ -233,8 +249,8 @@ impl<'de> Deserialize<'de> for DurationFlex {
 			{
 				match DurationFlex::try_from(v) {
 					Ok(value) => Ok(value),
-					Err(DurationError::InvalidFormat) => Err(Error::invalid_value(Unexpected::Str(v), &self)),
-					Err(DurationError::OutOfRange) => Err(Error::invalid_value(Unexpected::Str(v), &self)),
+					Err(DurationFlexError::InvalidFormat) => Err(Error::invalid_value(Unexpected::Str(v), &self)),
+					Err(DurationFlexError::OutOfRange) => Err(Error::invalid_value(Unexpected::Str(v), &self)),
 				}
 			}
 
@@ -251,8 +267,10 @@ impl<'de> Deserialize<'de> for DurationFlex {
 			{
 				match DurationFlex::try_from(v.as_str()) {
 					Ok(value) => Ok(value),
-					Err(DurationError::InvalidFormat) => Err(Error::invalid_value(Unexpected::Str(v.as_str()), &self)),
-					Err(DurationError::OutOfRange) => Err(Error::invalid_value(Unexpected::Str(v.as_str()), &self)),
+					Err(DurationFlexError::InvalidFormat) => {
+						Err(Error::invalid_value(Unexpected::Str(v.as_str()), &self))
+					},
+					Err(DurationFlexError::OutOfRange) => Err(Error::invalid_value(Unexpected::Str(v.as_str()), &self)),
 				}
 			}
 		}
@@ -286,7 +304,7 @@ impl From<DurationFlex> for OsStr {
 }
 
 impl FromStr for DurationFlex {
-	type Err = DurationError;
+	type Err = DurationFlexError;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
 		DurationFlex::try_from(s)
