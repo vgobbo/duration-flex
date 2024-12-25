@@ -1,14 +1,25 @@
-/// # Duration Flex
-///
-/// Helper class to make it easier to specify duration files. Specially useful in configuration files.
-///
-/// **Example:**
-/// - 1 hour and 23 minutes: `1h23m`
-/// - 1 week, 6 days, 23 hours, 49 minutes andd 50 seconds: `1w6d23h49m59s`
-///
-/// ## Features
-/// - `clap`: enable clap support, so it can be used as application arguments.
-/// - `serde`: enable serde support.
+//! # Duration Flex
+//!
+//! Helper class to make it easier to specify duration files. Specially useful in configuration files.
+//! - Basic interoperability with [`chrono::DateTime`], allowing it to be added/subbed from it.
+//! - Can be built from [`chrono::Duration`].
+//! - Can be built from [`std::time::Duration`].
+//!
+//! **Example:**
+//! - 1 hour and 23 minutes: `1h23m`
+//! - 1 week, 6 days, 23 hours, 49 minutes andd 50 seconds: `1w6d23h49m59s`
+//!
+//! **Supported Time Units**
+//! - Weeks: `2w` (2 weeks).
+//! - Days: `3d` (3 days).
+//! - Hours: `15h` (15 hours).
+//! - Minutes: `5m` (5 minutes).
+//! - Seconds: `30s` (30 seconds).
+//!
+//! ## Features
+//! - `clap`: enable clap support, so it can be used as application arguments.
+//! - `serde`: enable serde support.
+
 use std::fmt::{Display, Formatter};
 use std::ops::{Add, Sub};
 use std::str::FromStr;
@@ -38,10 +49,9 @@ pub enum DurationError {
 #[allow(clippy::tabs_in_doc_comments)]
 /// Type to conveniently specify durations and interoperate with [`chrono::Duration`].
 ///
-/// Expects a string like `1w6d23h49m59s`.
+/// The correct way of building this, is through one of the `from` methods.
 ///
-/// Can be used with `clap`, and can be used as a default value like the following:
-///
+/// With the `clap` feature, can be used with [`clap`]:
 /// ```
 /// use clap::Args;
 /// use duration_flex::DurationFlex;
@@ -70,10 +80,12 @@ static REGEX_STR: &str =
 static REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(REGEX_STR).unwrap());
 
 impl DurationFlex {
+	/// Whole seconds.
 	pub fn secs(&self) -> i64 {
 		self.secs
 	}
 
+	/// Nano-seconds.
 	pub fn nanos(&self) -> i32 {
 		self.nanos
 	}
