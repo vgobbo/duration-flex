@@ -21,6 +21,7 @@ As an AI agent working on this repository, you must adhere to the following stan
 
 ### Commit Guidelines
 - **Mandatory:** Use [Conventional Commits 1.0](https://www.conventionalcommits.org/en/v1.0.0/).
+- **Atomic Commits:** Do not mix unrelated changes in a single commit unless explicitly requested. Each commit should represent a single logical change.
 - Common types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`.
 
 ## Workflow & Tooling
