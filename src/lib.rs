@@ -32,6 +32,7 @@
 //! ## Features
 //! - `clap`: enable clap support, so it can be used as application arguments.
 //! - `serde`: enable serde support.
+//! - `utoipa`: enable support for the [`utoipa`] crate, allowing it to be used with the `ToSchema` derivation.
 //! - `validator`: enable support for the [`validator`] crate, allowing it to be used with the `range` validator.
 //!
 //! ### Validator Example:
@@ -137,6 +138,8 @@ pub enum DurationFlexError {
 /// }
 /// ```
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[cfg_attr(feature = "utoipa", schema(as = String, example = "1h30m"))]
 pub struct DurationFlex {
 	secs: i64,
 	nanos: i32,
