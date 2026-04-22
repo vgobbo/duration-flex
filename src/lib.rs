@@ -35,6 +35,8 @@
 //! - `validator`: enable support for the [`validator`] crate, allowing it to be used with the `range` validator.
 //!
 //! ### Validator Example:
+//!
+//! You can specify the range using the fully qualified type (extended version):
 //! ```
 //! # #[cfg(feature = "validator")]
 //! # {
@@ -47,6 +49,22 @@
 //! 		min = "DurationFlex::try_from(\"1h\").unwrap()",
 //! 		max = "DurationFlex::try_from(\"2h\").unwrap()"
 //! 	))]
+//! 	timeout: DurationFlex,
+//! }
+//! # }
+//! ```
+//!
+//! Or using string literals (string version). Note the escaped inner quotes, which are required
+//! because the macro parses the arguments as Rust expressions:
+//! ```
+//! # #[cfg(feature = "validator")]
+//! # {
+//! use duration_flex::DurationFlex;
+//! use validator::Validate;
+//!
+//! #[derive(Validate)]
+//! struct Config {
+//! 	#[validate(range(min = "\"1h\"", max = "\"2h\""))]
 //! 	timeout: DurationFlex,
 //! }
 //! # }
@@ -116,6 +134,19 @@ impl validator::ValidateRange<DurationFlex> for DurationFlex {
 	}
 
 	fn less_than(&self, min: DurationFlex) -> Option<bool> {
+		Some(self < &min)
+	}
+}
+
+#[cfg(feature = "validator")]
+impl validator::ValidateRange<&str> for DurationFlex {
+	fn greater_than(&self, max: &str) -> Option<bool> {
+		let max = DurationFlex::try_from(max).expect("invalid duration string in validator bounds");
+		Some(self > &max)
+	}
+
+	fn less_than(&self, min: &str) -> Option<bool> {
+		let min = DurationFlex::try_from(min).expect("invalid duration string in validator bounds");
 		Some(self < &min)
 	}
 }
@@ -447,6 +478,27 @@ mod test {
 				min = "DurationFlex::try_from(\"1h\").unwrap()",
 				max = "DurationFlex::try_from(\"2h\").unwrap()"
 			))]
+			duration: DurationFlex,
+		}
+
+		let value = SomeStruct { duration: DurationFlex::try_from("1h30m").unwrap() };
+		assert!(value.validate().is_ok());
+
+		let value = SomeStruct { duration: DurationFlex::try_from("30m").unwrap() };
+		assert!(value.validate().is_err());
+
+		let value = SomeStruct { duration: DurationFlex::try_from("2h30m").unwrap() };
+		assert!(value.validate().is_err());
+	}
+
+	#[cfg(feature = "validator")]
+	#[test]
+	fn validator_str() {
+		use validator::Validate;
+
+		#[derive(Validate)]
+		struct SomeStruct {
+			#[validate(range(min = "\"1h\"", max = "\"2h\""))]
 			duration: DurationFlex,
 		}
 
