@@ -25,3 +25,4 @@ pub fn main() {
 ## Features
 - `clap`: enable clap support, so it can be used as application arguments.
 - `serde`: enable serde support.
+- `validator`: enable support for the `validator` crate.

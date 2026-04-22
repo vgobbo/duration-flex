@@ -31,6 +31,25 @@
 //! ## Features
 //! - `clap`: enable clap support, so it can be used as application arguments.
 //! - `serde`: enable serde support.
+//! - `validator`: enable support for the [`validator`] crate, allowing it to be used with the `range` validator.
+//!
+//! ### Validator Example:
+//! ```
+//! # #[cfg(feature = "validator")]
+//! # {
+//! use duration_flex::DurationFlex;
+//! use validator::Validate;
+//!
+//! #[derive(Validate)]
+//! struct Config {
+//! 	#[validate(range(
+//! 		min = "DurationFlex::try_from(\"1h\").unwrap()",
+//! 		max = "DurationFlex::try_from(\"2h\").unwrap()"
+//! 	))]
+//! 	timeout: DurationFlex,
+//! }
+//! # }
+//! ```
 
 use std::fmt::{Display, Formatter};
 use std::ops::{Add, Sub};
