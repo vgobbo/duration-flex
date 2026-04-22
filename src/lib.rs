@@ -69,6 +69,21 @@
 //! }
 //! # }
 //! ```
+//!
+//! Or using numbers (number version), which represent the amount of seconds:
+//! ```
+//! # #[cfg(feature = "validator")]
+//! # {
+//! use duration_flex::DurationFlex;
+//! use validator::Validate;
+//!
+//! #[derive(Validate)]
+//! struct Config {
+//! 	#[validate(range(min = 3600, max = 7200))]
+//! 	timeout: DurationFlex,
+//! }
+//! # }
+//! ```
 
 use std::fmt::{Display, Formatter};
 use std::ops::{Add, Sub};
@@ -148,6 +163,17 @@ impl validator::ValidateRange<&str> for DurationFlex {
 	fn less_than(&self, min: &str) -> Option<bool> {
 		let min = DurationFlex::try_from(min).expect("invalid duration string in validator bounds");
 		Some(self < &min)
+	}
+}
+
+#[cfg(feature = "validator")]
+impl validator::ValidateRange<i64> for DurationFlex {
+	fn greater_than(&self, max: i64) -> Option<bool> {
+		Some(self.secs > max)
+	}
+
+	fn less_than(&self, min: i64) -> Option<bool> {
+		Some(self.secs < min)
 	}
 }
 
@@ -499,6 +525,27 @@ mod test {
 		#[derive(Validate)]
 		struct SomeStruct {
 			#[validate(range(min = "\"1h\"", max = "\"2h\""))]
+			duration: DurationFlex,
+		}
+
+		let value = SomeStruct { duration: DurationFlex::try_from("1h30m").unwrap() };
+		assert!(value.validate().is_ok());
+
+		let value = SomeStruct { duration: DurationFlex::try_from("30m").unwrap() };
+		assert!(value.validate().is_err());
+
+		let value = SomeStruct { duration: DurationFlex::try_from("2h30m").unwrap() };
+		assert!(value.validate().is_err());
+	}
+
+	#[cfg(feature = "validator")]
+	#[test]
+	fn validator_int() {
+		use validator::Validate;
+
+		#[derive(Validate)]
+		struct SomeStruct {
+			#[validate(range(min = 3600, max = 7200))]
 			duration: DurationFlex,
 		}
 
