@@ -1,3 +1,4 @@
+#![allow(clippy::tabs_in_doc_comments)]
 //! # Duration Flex
 //!
 //! Helper to make it easier to specify duration files. Specially useful in configuration files.
@@ -81,7 +82,6 @@ pub enum DurationFlexError {
 	OutOfRange,
 }
 
-#[allow(clippy::tabs_in_doc_comments)]
 /// Type to conveniently specify durations and interoperate with [`chrono::Duration`].
 ///
 /// The correct way of building this, is through one of the `from` methods.
