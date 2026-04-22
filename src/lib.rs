@@ -84,10 +84,21 @@ pub enum DurationFlexError {
 /// 	}
 /// }
 /// ```
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct DurationFlex {
 	secs: i64,
 	nanos: i32,
+}
+
+#[cfg(feature = "validator")]
+impl validator::ValidateRange<DurationFlex> for DurationFlex {
+	fn greater_than(&self, max: DurationFlex) -> Option<bool> {
+		Some(self > &max)
+	}
+
+	fn less_than(&self, min: DurationFlex) -> Option<bool> {
+		Some(self < &min)
+	}
 }
 
 static REGEX_STR: &str =
@@ -404,5 +415,29 @@ mod test {
 			&value,
 			&[Token::Struct { name: "SomeStruct", len: 1 }, Token::Str("duration"), Token::Str("1w"), Token::StructEnd],
 		);
+	}
+
+	#[cfg(feature = "validator")]
+	#[test]
+	fn validator() {
+		use validator::Validate;
+
+		#[derive(Validate)]
+		struct SomeStruct {
+			#[validate(range(
+				min = "DurationFlex::try_from(\"1h\").unwrap()",
+				max = "DurationFlex::try_from(\"2h\").unwrap()"
+			))]
+			duration: DurationFlex,
+		}
+
+		let value = SomeStruct { duration: DurationFlex::try_from("1h30m").unwrap() };
+		assert!(value.validate().is_ok());
+
+		let value = SomeStruct { duration: DurationFlex::try_from("30m").unwrap() };
+		assert!(value.validate().is_err());
+
+		let value = SomeStruct { duration: DurationFlex::try_from("2h30m").unwrap() };
+		assert!(value.validate().is_err());
 	}
 }
