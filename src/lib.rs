@@ -278,6 +278,41 @@ impl DurationFlex {
 		Duration::from(*self)
 	}
 
+	/// Formats the duration in a human-readable English string (e.g. `"1 year, 2 weeks, 3 days"`).
+	///
+	/// If the duration is zero, returns `"0 seconds"`.
+	pub fn format_human(&self) -> String {
+		if self.is_zero() {
+			return "0 seconds".to_string();
+		}
+
+		let mut secs = self.secs;
+		let mut parts = Vec::new();
+
+		let units = [
+			(SECS_PER_YEAR, "year", "years"),
+			(SECS_PER_WEEK, "week", "weeks"),
+			(SECS_PER_DAY, "day", "days"),
+			(SECS_PER_HOUR, "hour", "hours"),
+			(SECS_PER_MINUTES, "minute", "minutes"),
+			(1, "second", "seconds"),
+		];
+
+		for (unit_secs, singular, plural) in units {
+			let count = secs / unit_secs;
+			secs -= count * unit_secs;
+			if count > 0 {
+				if count == 1 {
+					parts.push(format!("1 {singular}"));
+				} else {
+					parts.push(format!("{count} {plural}"));
+				}
+			}
+		}
+
+		parts.join(", ")
+	}
+
 	/// Whole seconds.
 	pub fn secs(&self) -> i64 {
 		self.secs
@@ -915,5 +950,25 @@ mod test {
 		let pos = DurationFlex::from_secs(5);
 		assert_eq!(pos.to_std(), Some(time::Duration::from_secs(5)));
 		assert_eq!(pos.to_chrono(), Duration::try_seconds(5).unwrap());
+	}
+
+	#[test]
+	fn test_format_human() {
+		assert_eq!(DurationFlex::ZERO.format_human(), "0 seconds");
+		assert_eq!(DurationFlex::from_secs(1).format_human(), "1 second");
+		assert_eq!(DurationFlex::from_secs(30).format_human(), "30 seconds");
+		assert_eq!(DurationFlex::from_minutes(1).format_human(), "1 minute");
+		assert_eq!(DurationFlex::from_minutes(5).format_human(), "5 minutes");
+		assert_eq!(DurationFlex::from_hours(1).format_human(), "1 hour");
+		assert_eq!(DurationFlex::from_hours(2).format_human(), "2 hours");
+		assert_eq!(DurationFlex::from_days(1).format_human(), "1 day");
+		assert_eq!(DurationFlex::from_days(3).format_human(), "3 days");
+		assert_eq!(DurationFlex::from_weeks(1).format_human(), "1 week");
+		assert_eq!(DurationFlex::from_weeks(2).format_human(), "2 weeks");
+		assert_eq!(DurationFlex::from_years(1).format_human(), "1 year");
+		assert_eq!(DurationFlex::from_years(2).format_human(), "2 years");
+
+		let complex = DurationFlex::try_from("1y2w3d4h5m6s").unwrap();
+		assert_eq!(complex.format_human(), "1 year, 2 weeks, 3 days, 4 hours, 5 minutes, 6 seconds");
 	}
 }
