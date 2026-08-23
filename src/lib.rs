@@ -1,7 +1,7 @@
 #![allow(clippy::tabs_in_doc_comments)]
 //! # Duration Flex
 //!
-//! Helper to make it easier to specify duration files. Specially useful in configuration files.
+//! Helper to make it easier to specify durations. Specially useful in configuration files.
 //! - Basic interoperability with [`chrono::DateTime`], allowing it to be added/subbed from it.
 //! - Can be built from [`chrono::Duration`].
 //! - Can be built from [`std::time::Duration`].
