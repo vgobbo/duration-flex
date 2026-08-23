@@ -204,6 +204,80 @@ static REGEX_STR: &str = r"^((?P<years>\d+)y)?((?P<weeks>\d+)w)?((?P<days>\d+)d)
 static REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(REGEX_STR).unwrap());
 
 impl DurationFlex {
+	/// A duration of zero seconds.
+	pub const ZERO: DurationFlex = DurationFlex { secs: 0, nanos: 0 };
+
+	/// Creates a new `DurationFlex` from seconds and nanoseconds.
+	pub const fn new(secs: i64, nanos: i32) -> Self {
+		DurationFlex { secs, nanos }
+	}
+
+	/// Creates a new `DurationFlex` from a whole number of seconds.
+	pub const fn from_secs(secs: i64) -> Self {
+		DurationFlex { secs, nanos: 0 }
+	}
+
+	/// Creates a new `DurationFlex` from a whole number of milliseconds.
+	pub const fn from_millis(millis: i64) -> Self {
+		let secs = millis / 1000;
+		let extra_millis = millis % 1000;
+		DurationFlex { secs, nanos: (extra_millis * 1_000_000) as i32 }
+	}
+
+	/// Creates a new `DurationFlex` from a whole number of minutes.
+	pub const fn from_minutes(minutes: i64) -> Self {
+		DurationFlex { secs: minutes * SECS_PER_MINUTES, nanos: 0 }
+	}
+
+	/// Creates a new `DurationFlex` from a whole number of hours.
+	pub const fn from_hours(hours: i64) -> Self {
+		DurationFlex { secs: hours * SECS_PER_HOUR, nanos: 0 }
+	}
+
+	/// Creates a new `DurationFlex` from a whole number of days.
+	pub const fn from_days(days: i64) -> Self {
+		DurationFlex { secs: days * SECS_PER_DAY, nanos: 0 }
+	}
+
+	/// Creates a new `DurationFlex` from a whole number of weeks.
+	pub const fn from_weeks(weeks: i64) -> Self {
+		DurationFlex { secs: weeks * SECS_PER_WEEK, nanos: 0 }
+	}
+
+	/// Creates a new `DurationFlex` from a whole number of years (365 days each).
+	pub const fn from_years(years: i64) -> Self {
+		DurationFlex { secs: years * SECS_PER_YEAR, nanos: 0 }
+	}
+
+	/// Returns true if the duration is zero.
+	pub const fn is_zero(&self) -> bool {
+		self.secs == 0 && self.nanos == 0
+	}
+
+	/// Returns true if the duration is positive (> 0).
+	pub const fn is_positive(&self) -> bool {
+		self.secs > 0 || (self.secs == 0 && self.nanos > 0)
+	}
+
+	/// Returns true if the duration is negative (< 0).
+	pub const fn is_negative(&self) -> bool {
+		self.secs < 0 || (self.secs == 0 && self.nanos < 0)
+	}
+
+	/// Converts this duration into a [`std::time::Duration`] if non-negative.
+	pub fn to_std(&self) -> Option<time::Duration> {
+		if self.secs < 0 || (self.secs == 0 && self.nanos < 0) {
+			None
+		} else {
+			Some(time::Duration::new(self.secs as u64, self.nanos as u32))
+		}
+	}
+
+	/// Converts this duration into a [`chrono::Duration`].
+	pub fn to_chrono(&self) -> Duration {
+		Duration::from(*self)
+	}
+
 	/// Whole seconds.
 	pub fn secs(&self) -> i64 {
 		self.secs
@@ -799,5 +873,47 @@ mod test {
 		let duration = DurationFlex::try_from("1h").unwrap();
 		let earlier = now - duration;
 		assert_eq!(earlier + duration, now);
+	}
+
+	#[test]
+	fn constructors_and_inspectors() {
+		assert_eq!(DurationFlex::ZERO, DurationFlex::new(0, 0));
+		assert!(DurationFlex::ZERO.is_zero());
+		assert!(!DurationFlex::ZERO.is_positive());
+		assert!(!DurationFlex::ZERO.is_negative());
+
+		let s = DurationFlex::from_secs(10);
+		assert_eq!(s.secs(), 10);
+		assert_eq!(s.nanos(), 0);
+		assert!(s.is_positive());
+		assert!(!s.is_negative());
+
+		let ms = DurationFlex::from_millis(1500);
+		assert_eq!(ms.secs(), 1);
+		assert_eq!(ms.nanos(), 500_000_000);
+
+		let m = DurationFlex::from_minutes(2);
+		assert_eq!(m.secs(), 120);
+
+		let h = DurationFlex::from_hours(3);
+		assert_eq!(h.secs(), 3 * 3600);
+
+		let d = DurationFlex::from_days(4);
+		assert_eq!(d.secs(), 4 * 86400);
+
+		let w = DurationFlex::from_weeks(2);
+		assert_eq!(w.secs(), 14 * 86400);
+
+		let y = DurationFlex::from_years(1);
+		assert_eq!(y.secs(), 365 * 86400);
+
+		let neg = DurationFlex::new(-5, 0);
+		assert!(neg.is_negative());
+		assert!(!neg.is_positive());
+		assert_eq!(neg.to_std(), None);
+
+		let pos = DurationFlex::from_secs(5);
+		assert_eq!(pos.to_std(), Some(time::Duration::from_secs(5)));
+		assert_eq!(pos.to_chrono(), Duration::try_seconds(5).unwrap());
 	}
 }
