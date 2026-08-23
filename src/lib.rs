@@ -92,7 +92,9 @@
 //! ```
 
 use std::fmt::{Display, Formatter};
-use std::ops::{Add, Sub};
+use std::hash::Hash;
+use std::iter::Sum;
+use std::ops::{Add, Div, Mul, Sub};
 use std::str::FromStr;
 use std::time;
 
@@ -113,7 +115,7 @@ const SECS_PER_WEEK: i64 = 7 * SECS_PER_DAY;
 const SECS_PER_YEAR: i64 = 365 * SECS_PER_DAY;
 
 /// Errors returned by the different methods.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum DurationFlexError {
 	/// String format is not valid, e.g. `1x` (`x` is not supported).
 	InvalidFormat,
@@ -121,6 +123,17 @@ pub enum DurationFlexError {
 	/// Value is out of range.
 	OutOfRange,
 }
+
+impl Display for DurationFlexError {
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		match self {
+			DurationFlexError::InvalidFormat => write!(f, "invalid duration format"),
+			DurationFlexError::OutOfRange => write!(f, "duration value is out of range"),
+		}
+	}
+}
+
+impl std::error::Error for DurationFlexError {}
 
 /// Type to conveniently specify durations and interoperate with [`chrono::Duration`].
 ///
@@ -143,7 +156,7 @@ pub enum DurationFlexError {
 /// 	}
 /// }
 /// ```
-#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Hash, PartialOrd, Ord)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[cfg_attr(feature = "utoipa", schema(as = String, example = "1h30m"))]
 pub struct DurationFlex {
@@ -230,6 +243,77 @@ impl Add<Duration> for DurationFlex {
 
 	fn add(self, rhs: Duration) -> Self::Output {
 		Duration::from(self) + rhs
+	}
+}
+
+impl Sub<DurationFlex> for DurationFlex {
+	type Output = DurationFlex;
+
+	fn sub(self, rhs: DurationFlex) -> Self::Output {
+		DurationFlex { secs: self.secs - rhs.secs, nanos: self.nanos - rhs.nanos }
+	}
+}
+
+impl Add<DurationFlex> for DurationFlex {
+	type Output = DurationFlex;
+
+	fn add(self, rhs: DurationFlex) -> Self::Output {
+		DurationFlex { secs: self.secs + rhs.secs, nanos: self.nanos + rhs.nanos }
+	}
+}
+
+impl Mul<u32> for DurationFlex {
+	type Output = DurationFlex;
+
+	fn mul(self, rhs: u32) -> Self::Output {
+		DurationFlex { secs: self.secs * rhs as i64, nanos: self.nanos * rhs as i32 }
+	}
+}
+
+impl Mul<i64> for DurationFlex {
+	type Output = DurationFlex;
+
+	fn mul(self, rhs: i64) -> Self::Output {
+		DurationFlex { secs: self.secs * rhs, nanos: (self.nanos as i64 * rhs) as i32 }
+	}
+}
+
+impl Div<u32> for DurationFlex {
+	type Output = DurationFlex;
+
+	fn div(self, rhs: u32) -> Self::Output {
+		DurationFlex { secs: self.secs / rhs as i64, nanos: self.nanos / rhs as i32 }
+	}
+}
+
+impl Div<i64> for DurationFlex {
+	type Output = DurationFlex;
+
+	fn div(self, rhs: i64) -> Self::Output {
+		DurationFlex { secs: self.secs / rhs, nanos: (self.nanos as i64 / rhs) as i32 }
+	}
+}
+
+impl Sum for DurationFlex {
+	fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+		iter.fold(DurationFlex::default(), |acc, x| acc + x)
+	}
+}
+
+impl<'a> Sum<&'a DurationFlex> for DurationFlex {
+	fn sum<I: Iterator<Item = &'a Self>>(iter: I) -> Self {
+		iter.fold(DurationFlex::default(), |acc, x| acc + *x)
+	}
+}
+
+impl<T> Sub<DurationFlex> for DateTime<T>
+where
+	T: TimeZone,
+{
+	type Output = DateTime<T>;
+
+	fn sub(self, rhs: DurationFlex) -> Self::Output {
+		self - Duration::from(rhs)
 	}
 }
 
@@ -649,5 +733,71 @@ mod test {
 
 		let value = SomeStruct { duration: DurationFlex::try_from("2h30m").unwrap() };
 		assert!(value.validate().is_err());
+	}
+
+	#[test]
+	fn default_and_hash() {
+		use std::collections::HashSet;
+
+		let default_val = DurationFlex::default();
+		assert_eq!(default_val.secs(), 0);
+		assert_eq!(default_val.nanos(), 0);
+
+		let mut set = HashSet::new();
+		set.insert(DurationFlex::try_from("1h").unwrap());
+		set.insert(DurationFlex::try_from("60m").unwrap());
+		assert_eq!(set.len(), 1);
+
+		let mut err_set = HashSet::new();
+		err_set.insert(DurationFlexError::InvalidFormat);
+		err_set.insert(DurationFlexError::OutOfRange);
+		assert_eq!(err_set.len(), 2);
+	}
+
+	#[test]
+	fn error_traits() {
+		use std::error::Error;
+
+		let err = DurationFlexError::InvalidFormat;
+		assert_eq!(err.to_string(), "invalid duration format");
+		let err_source: &dyn Error = &err;
+		assert!(err_source.source().is_none());
+
+		let err_oor = DurationFlexError::OutOfRange;
+		assert_eq!(err_oor.to_string(), "duration value is out of range");
+	}
+
+	#[test]
+	fn arithmetic_operations() {
+		let a = DurationFlex::try_from("1h").unwrap();
+		let b = DurationFlex::try_from("30m").unwrap();
+
+		assert_eq!((a + b).secs(), 90 * 60);
+		assert_eq!((a - b).secs(), 30 * 60);
+		assert_eq!((b * 2u32).secs(), 3600);
+		assert_eq!((b * 3i64).secs(), 5400);
+		assert_eq!((a / 2u32).secs(), 1800);
+		assert_eq!((a / 4i64).secs(), 900);
+
+		let list = vec![
+			DurationFlex::try_from("1h").unwrap(),
+			DurationFlex::try_from("30m").unwrap(),
+			DurationFlex::try_from("15m").unwrap(),
+		];
+		let total: DurationFlex = list.iter().sum();
+		assert_eq!(total.secs(), 105 * 60);
+
+		let total_owned: DurationFlex = list.into_iter().sum();
+		assert_eq!(total_owned.secs(), 105 * 60);
+	}
+
+	#[test]
+	fn datetime_subtraction() {
+		use chrono::Utc;
+
+		let now = Utc::now();
+		let duration = DurationFlex::try_from("1h").unwrap();
+		let earlier = now - duration;
+		assert_eq!(earlier + duration, now);
 	}
 }
