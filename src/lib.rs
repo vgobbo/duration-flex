@@ -8,14 +8,19 @@
 //!
 //! **Example:**
 //! - 1 hour and 23 minutes: `1h23m`
-//! - 1 week, 6 days, 23 hours, 49 minutes andd 50 seconds: `1w6d23h49m59s`
+//! - 1 week, 6 days, 23 hours, 49 minutes and 50 seconds: `1w6d23h49m59s`
+//! - 1 year, 2 weeks and 3 days: `1y2w3d`
 //!
 //! **Supported Time Units**
+//! - Years: `1y` (1 year, equivalent to 365 days).
 //! - Weeks: `2w` (2 weeks).
 //! - Days: `3d` (3 days).
 //! - Hours: `15h` (15 hours).
 //! - Minutes: `5m` (5 minutes).
 //! - Seconds: `30s` (30 seconds).
+//!
+//! > **Note:** Months are not supported because they vary in the amount of days (28 to 31 days).
+//! > It is best to specify the desired duration in days instead (e.g. `30d`).
 //!
 //! ## Usage
 //!
@@ -105,11 +110,12 @@ const SECS_PER_MINUTES: i64 = 60;
 const SECS_PER_HOUR: i64 = 60 * SECS_PER_MINUTES;
 const SECS_PER_DAY: i64 = 24 * SECS_PER_HOUR;
 const SECS_PER_WEEK: i64 = 7 * SECS_PER_DAY;
+const SECS_PER_YEAR: i64 = 365 * SECS_PER_DAY;
 
 /// Errors returned by the different methods.
 #[derive(Copy, Clone, Debug)]
 pub enum DurationFlexError {
-	/// String format is not valid, e.g. `1y` (`y` is not supported).
+	/// String format is not valid, e.g. `1x` (`x` is not supported).
 	InvalidFormat,
 
 	/// Value is out of range.
@@ -180,8 +186,7 @@ impl validator::ValidateRange<i64> for DurationFlex {
 	}
 }
 
-static REGEX_STR: &str =
-	r"^((?P<weeks>\d+)w)?((?P<days>\d+)d)?((?P<hours>\d+)h)?((?P<minutes>\d+)m)?((?P<seconds>\d+)s)?$";
+static REGEX_STR: &str = r"^((?P<years>\d+)y)?((?P<weeks>\d+)w)?((?P<days>\d+)d)?((?P<hours>\d+)h)?((?P<minutes>\d+)m)?((?P<seconds>\d+)s)?$";
 
 static REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(REGEX_STR).unwrap());
 
@@ -256,6 +261,8 @@ impl TryFrom<&str> for DurationFlex {
 	fn try_from(value: &str) -> Result<Self, Self::Error> {
 		let captures = REGEX.captures(value).ok_or(DurationFlexError::InvalidFormat)?;
 
+		let years = Duration::try_days(captures.name("years").map_or(0i64, Self::de_component) * 365)
+			.ok_or(DurationFlexError::OutOfRange)?;
 		let weeks = Duration::try_weeks(captures.name("weeks").map_or(0i64, Self::de_component))
 			.ok_or(DurationFlexError::OutOfRange)?;
 		let days = Duration::try_days(captures.name("days").map_or(0i64, Self::de_component))
@@ -267,7 +274,7 @@ impl TryFrom<&str> for DurationFlex {
 		let seconds = Duration::try_seconds(captures.name("seconds").map_or(0i64, Self::de_component))
 			.ok_or(DurationFlexError::OutOfRange)?;
 
-		let duration = weeks + days + hours + minutes + seconds;
+		let duration = years + weeks + days + hours + minutes + seconds;
 
 		Ok(DurationFlex { secs: duration.num_seconds(), nanos: 0i32 })
 	}
@@ -307,6 +314,7 @@ impl Display for DurationFlex {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
 		let mut secs = self.secs;
 
+		Self::ser_component(&mut secs, "y", SECS_PER_YEAR, f)?;
 		Self::ser_component(&mut secs, "w", SECS_PER_WEEK, f)?;
 		Self::ser_component(&mut secs, "d", SECS_PER_DAY, f)?;
 		Self::ser_component(&mut secs, "h", SECS_PER_HOUR, f)?;
@@ -321,8 +329,8 @@ impl<'de> Deserialize<'de> for DurationFlex {
 	where
 		D: Deserializer<'de>,
 	{
-		static REGEX_MSG: &str =
-			"a String with the format weeks (w), days (d), hours (h), minutes (m) and/or seconds (s), in order";
+		static REGEX_MSG: &str = "a String with the format years (y), weeks (w), days (d), hours (h), minutes (m) \
+		                          and/or seconds (s), in order";
 
 		struct DurationFlexVisitor;
 
@@ -411,6 +419,17 @@ mod test {
 
 	#[test]
 	fn de_string() {
+		let value = DurationFlex::try_from("1y").unwrap();
+		assert_eq!(value.secs(), SECS_PER_YEAR);
+		assert_eq!(value.nanos(), 0);
+
+		let value = DurationFlex::try_from("1y2w3d4h5m6s").unwrap();
+		assert_eq!(
+			value.secs(),
+			SECS_PER_YEAR + 2 * SECS_PER_WEEK + 3 * SECS_PER_DAY + 4 * SECS_PER_HOUR + 5 * SECS_PER_MINUTES + 6
+		);
+		assert_eq!(value.nanos(), 0);
+
 		let value = DurationFlex::try_from("1w2d").unwrap();
 		assert_eq!(value.secs(), 9 * SECS_PER_DAY);
 		assert_eq!(value.nanos(), 0);
@@ -425,10 +444,28 @@ mod test {
 
 		let value = DurationFlex::try_from("5s5d");
 		assert!(value.is_err());
+
+		let value = DurationFlex::try_from("1w1y");
+		assert!(value.is_err());
 	}
 
 	#[test]
 	fn ser_string() {
+		let value = DurationFlex::try_from("1y").unwrap().to_string();
+		assert_eq!(value, "1y");
+
+		let value = DurationFlex::try_from("1y2w3d4h5m6s").unwrap().to_string();
+		assert_eq!(value, "1y2w3d4h5m6s");
+
+		let value = DurationFlex::try_from("365d").unwrap().to_string();
+		assert_eq!(value, "1y");
+
+		let value = DurationFlex::try_from("372d").unwrap().to_string();
+		assert_eq!(value, "1y1w");
+
+		let value = DurationFlex::try_from("53w").unwrap().to_string();
+		assert_eq!(value, "1y6d");
+
 		let value = DurationFlex::try_from("1w2d").unwrap().to_string();
 		assert_eq!(value, "1w2d");
 
@@ -447,6 +484,12 @@ mod test {
 
 	#[test]
 	fn deserialize_nums() {
+		let value = DurationFlex::try_from("1y").unwrap();
+		assert_de_tokens(&value, &[Token::Str("1y")]);
+
+		let value = DurationFlex::try_from("1y2w3d4h5m6s").unwrap();
+		assert_de_tokens(&value, &[Token::Str("1y2w3d4h5m6s")]);
+
 		let value = DurationFlex::try_from("1w2d").unwrap();
 		assert_de_tokens(&value, &[Token::Str("1w2d")]);
 
@@ -465,6 +508,12 @@ mod test {
 
 	#[test]
 	fn serialize() {
+		let value = DurationFlex::try_from("1y").unwrap();
+		assert_ser_tokens(&value, &[Token::Str("1y")]);
+
+		let value = DurationFlex::try_from("1y2w3d4h5m6s").unwrap();
+		assert_ser_tokens(&value, &[Token::Str("1y2w3d4h5m6s")]);
+
 		let value = DurationFlex::try_from("1w2d").unwrap();
 		assert_ser_tokens(&value, &[Token::Str("1w2d")]);
 
@@ -494,6 +543,13 @@ mod test {
 			&value,
 			&[Token::Struct { name: "SomeStruct", len: 1 }, Token::Str("duration"), Token::Str("1w"), Token::StructEnd],
 		);
+
+		let value_year = SomeStruct { duration: DurationFlex::try_from("1y").unwrap() };
+
+		assert_ser_tokens(
+			&value_year,
+			&[Token::Struct { name: "SomeStruct", len: 1 }, Token::Str("duration"), Token::Str("1y"), Token::StructEnd],
+		);
 	}
 
 	#[cfg(feature = "validator")]
@@ -518,6 +574,24 @@ mod test {
 
 		let value = SomeStruct { duration: DurationFlex::try_from("2h30m").unwrap() };
 		assert!(value.validate().is_err());
+
+		#[derive(Validate)]
+		struct YearStruct {
+			#[validate(range(
+				min = "DurationFlex::try_from(\"1y\").unwrap()",
+				max = "DurationFlex::try_from(\"2y\").unwrap()"
+			))]
+			duration: DurationFlex,
+		}
+
+		let value = YearStruct { duration: DurationFlex::try_from("1y6w").unwrap() };
+		assert!(value.validate().is_ok());
+
+		let value = YearStruct { duration: DurationFlex::try_from("300d").unwrap() };
+		assert!(value.validate().is_err());
+
+		let value = YearStruct { duration: DurationFlex::try_from("2y1d").unwrap() };
+		assert!(value.validate().is_err());
 	}
 
 	#[cfg(feature = "validator")]
@@ -538,6 +612,21 @@ mod test {
 		assert!(value.validate().is_err());
 
 		let value = SomeStruct { duration: DurationFlex::try_from("2h30m").unwrap() };
+		assert!(value.validate().is_err());
+
+		#[derive(Validate)]
+		struct YearStruct {
+			#[validate(range(min = "\"1y\"", max = "\"2y\""))]
+			duration: DurationFlex,
+		}
+
+		let value = YearStruct { duration: DurationFlex::try_from("1y6w").unwrap() };
+		assert!(value.validate().is_ok());
+
+		let value = YearStruct { duration: DurationFlex::try_from("300d").unwrap() };
+		assert!(value.validate().is_err());
+
+		let value = YearStruct { duration: DurationFlex::try_from("2y1d").unwrap() };
 		assert!(value.validate().is_err());
 	}
 
